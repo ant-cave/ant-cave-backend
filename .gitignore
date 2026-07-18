@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+venv/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+.env
