@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_client_ip, verify_api_key
+from app.dependencies import get_client_ip
 from app.schemas import TrackEvent, TrackBatch, TrackResponse, TrackBatchResponse
 from app.services import tracking_service
 
@@ -16,7 +16,6 @@ def track_visit(
     event: TrackEvent,
     request: Request,
     db: Session = Depends(get_db),
-    _auth: None = Depends(verify_api_key),
 ):
     """Record a single page visit."""
     # Use User-Agent from header if not provided in body
@@ -41,7 +40,6 @@ def track_batch(
     batch: TrackBatch,
     request: Request,
     db: Session = Depends(get_db),
-    _auth: None = Depends(verify_api_key),
 ):
     """Record multiple page visits in one request."""
     ip = get_client_ip(request)

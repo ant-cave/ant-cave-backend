@@ -13,7 +13,7 @@ DATABASE_URL = os.getenv(
 )
 
 # CORS
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "https://me.011420.xyz,https://ant-cave.github.io,https://backend.api.011420.xyz")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 
 # Stats
 ACTIVE_WINDOW_MINUTES = int(os.getenv("ACTIVE_WINDOW_MINUTES", "30"))
@@ -22,11 +22,8 @@ ACTIVE_WINDOW_MINUTES = int(os.getenv("ACTIVE_WINDOW_MINUTES", "30"))
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
-# API Key for tracker authentication (empty string = disabled)
-TRACKER_API_KEY = os.getenv("TRACKER_API_KEY", "")
-
-# Panel password for dashboard login (empty string = no password required)
+# Panel password for web dashboard (empty string = no password required)
 PANEL_PASSWORD = os.getenv("PANEL_PASSWORD", "")
 
-# Session secret (auto-generated if not set, but can be provided for persistence across restarts)
+# Session secret for dashboard login session
 SESSION_SECRET = os.getenv("SESSION_SECRET", "ant-cave-default-secret-change-me")

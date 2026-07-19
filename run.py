@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-CLI entry point for the Ant Cave Analytics backend.
+Entry point for the Ant Cave Analytics backend.
 
 Usage:
-    python run.py                  # Run with defaults
-    python run.py --port 8080      # Custom port
-    python run.py --reload         # Auto-reload on code changes
+    python run.py                       # Start with CLI
+    python run.py --gui                 # Open browser with web login page
+    python run.py --gui --port 8080     # Custom port
 """
 
 import argparse
 import os
+import webbrowser
 
 import uvicorn
 
@@ -43,15 +44,25 @@ def main():
         help="Number of worker processes (default: 1)",
     )
     parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Open browser with the web dashboard",
+    )
+    parser.add_argument(
         "--panel-password",
         default="",
-        help="Password for the dashboard GUI (default: no password)",
+        help="Password for the web dashboard (default: no password)",
     )
 
     args = parser.parse_args()
 
     if args.panel_password:
         os.environ["PANEL_PASSWORD"] = args.panel_password
+
+    if args.gui:
+        port = args.port
+        print(f"Starting server at http://{args.host}:{port}/dashboard")
+        webbrowser.open(f"http://localhost:{port}/dashboard")
 
     uvicorn.run(
         "app.main:app",

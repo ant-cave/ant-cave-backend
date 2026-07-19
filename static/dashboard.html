@@ -680,14 +680,12 @@
       });
     }
 
-    // Enter key on password field
     document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("loginPassword").addEventListener("keydown", function (e) {
         if (e.key === "Enter") handleLogin();
       });
     });
 
-    // ── Check auth before starting ──
     function checkAuth() {
       fetch("/api/auth/check", {credentials: "same-origin"}).then(function (r) {
         if (r.ok) {

@@ -1,14 +1,8 @@
 """FastAPI dependencies for route handlers."""
 
-from fastapi import Header, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 
-from app.config import TRACKER_API_KEY, PANEL_PASSWORD
-
-
-def verify_api_key(x_api_key: str = Header("")):
-    """Verify the API key on tracking endpoints. Skips check if key is empty."""
-    if TRACKER_API_KEY and x_api_key != TRACKER_API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid API key")
+from app.config import PANEL_PASSWORD
 
 
 def verify_panel_auth(request: Request):
