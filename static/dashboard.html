@@ -19,6 +19,95 @@
       --card-radius: 12px;
     }
 
+    /* ── Login screen ── */
+    #loginScreen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg-body);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    #loginScreen.active {
+      display: flex;
+    }
+
+    #loginScreen .login-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--card-radius);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    #loginScreen .login-box h2 {
+      margin: 0 0 8px 0;
+      font-size: 1.4rem;
+    }
+
+    #loginScreen .login-box p {
+      margin: 0 0 24px 0;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    #loginScreen .login-box input[type="password"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-body);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+
+    #loginScreen .login-box input[type="password"]:focus {
+      border-color: var(--accent);
+    }
+
+    #loginScreen .login-box button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    #loginScreen .login-box button:hover {
+      opacity: 0.9;
+    }
+
+    #loginScreen .login-box button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #loginScreen .login-error {
+      display: none;
+      margin-top: 12px;
+      color: #e74c3c;
+      font-size: 0.82rem;
+    }
+
+    #loginScreen .login-error.visible {
+      display: block;
+    }
+
     * { box-sizing: border-box; }
 
     body {
@@ -412,6 +501,17 @@
   </style>
 </head>
 <body>
+  <!-- ── Login screen ── -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <h2>🐜 Ant Cave Analytics</h2>
+      <p>Enter password to access the dashboard</p>
+      <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+      <button id="loginBtn" onclick="handleLogin()">Unlock</button>
+      <div class="login-error" id="loginError">Incorrect password</div>
+    </div>
+  </div>
+
   <!-- ── Header ── -->
   <div class="header">
     <h1><span class="emoji">🐜</span> Ant Cave Analytics</h1>
@@ -420,6 +520,7 @@
       <label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;">
         <input type="checkbox" id="autoRefresh" checked> Auto
       </label>
+      <button onclick="handleLogout()" style="background:none;border:1px solid var(--border-color);border-radius:6px;color:var(--text-secondary);font-size:0.75rem;padding:4px 10px;cursor:pointer;">Logout</button>
     </div>
   </div>
 
@@ -545,6 +646,62 @@
   <script>
   (function () {
     "use strict";
+
+    // ── Auth ──
+    function handleLogin() {
+      var pw = document.getElementById("loginPassword");
+      var btn = document.getElementById("loginBtn");
+      var err = document.getElementById("loginError");
+      btn.disabled = true;
+      err.classList.remove("visible");
+
+      fetch("/api/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({password: pw.value}),
+        credentials: "same-origin",
+      }).then(function (r) {
+        if (r.ok) return r.json();
+        throw new Error("bad password");
+      }).then(function () {
+        document.getElementById("loginScreen").classList.remove("active");
+        initDashboard();
+      }).catch(function () {
+        err.classList.add("visible");
+        pw.value = "";
+        pw.focus();
+        btn.disabled = false;
+      });
+    }
+
+    function handleLogout() {
+      fetch("/api/logout", {method: "POST", credentials: "same-origin"}).then(function () {
+        location.reload();
+      });
+    }
+
+    // Enter key on password field
+    document.addEventListener("DOMContentLoaded", function () {
+      document.getElementById("loginPassword").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") handleLogin();
+      });
+    });
+
+    // ── Check auth before starting ──
+    function checkAuth() {
+      fetch("/api/auth/check", {credentials: "same-origin"}).then(function (r) {
+        if (r.ok) {
+          document.getElementById("loginScreen").classList.remove("active");
+          initDashboard();
+        } else {
+          document.getElementById("loginScreen").classList.add("active");
+          document.getElementById("loginPassword").focus();
+        }
+      }).catch(function () {
+        document.getElementById("loginScreen").classList.add("active");
+        document.getElementById("loginPassword").focus();
+      });
+    }
 
     // ── State ──
     var charts = {};
@@ -945,8 +1102,12 @@
     $("trackerScriptUrl").textContent = window.location.origin + "/tracker.js";
 
     // ── Init ──
-    refreshDashboard();
-    startAutoRefresh();
+    function initDashboard() {
+      refreshDashboard();
+      startAutoRefresh();
+    }
+
+    checkAuth();
   })();
   </script>
 </body>

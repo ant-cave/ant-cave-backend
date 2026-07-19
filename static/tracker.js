@@ -26,6 +26,9 @@
       return base.replace(/\/+$/, "") + "/api/track";
     })();
 
+  var apiKey =
+    window._antTrackApiKey || "";
+
   function collect() {
     return {
       page_url: window.location.href,
@@ -50,6 +53,7 @@
       } else {
         fetch(endpoint, {
           method: "POST",
+          headers: apiKey ? { "X-API-Key": apiKey } : {},
           body: blob,
           keepalive: true,
           credentials: "omit",
@@ -61,12 +65,10 @@
     }
   }
 
-  // Expose manual page view trigger for SPAs
   window._antTrackPageView = function () {
     send(collect());
   };
 
-  // Send on initial page load
   if (document.readyState === "complete") {
     send(collect());
   } else {

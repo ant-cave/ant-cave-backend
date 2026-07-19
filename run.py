@@ -9,6 +9,8 @@ Usage:
 """
 
 import argparse
+import os
+
 import uvicorn
 
 from app.config import HOST, PORT
@@ -40,8 +42,16 @@ def main():
         default=1,
         help="Number of worker processes (default: 1)",
     )
+    parser.add_argument(
+        "--panel-password",
+        default="",
+        help="Password for the dashboard GUI (default: no password)",
+    )
 
     args = parser.parse_args()
+
+    if args.panel_password:
+        os.environ["PANEL_PASSWORD"] = args.panel_password
 
     uvicorn.run(
         "app.main:app",
