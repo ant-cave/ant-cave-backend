@@ -6,19 +6,23 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from httpx import AsyncClient, Limits, Timeout
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import CORS_ORIGINS, PROJECT_ROOT, PANEL_PASSWORD, SESSION_SECRET
 from app.database import engine, Base
 from app.dependencies import verify_panel_auth
-from app.routers import tracking, stats
+from app.routers import proxy, tracking, stats
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     Base.metadata.create_all(bind=engine)
+    client = AsyncClient(limits=Limits(max_keepalive_connections=20, max_connections=100), timeout=Timeout(300.0))
+    proxy.set_client(client)
     yield
+    await client.aclose()
     engine.dispose()
 
 
@@ -29,19 +33,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, max_age=86400)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, max_age=86400, same_site="lax", https_only=False)
 
 origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
+allow_all = origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins != ["*"] else ["*"],
-    allow_credentials=True,
+    allow_origins=["*"] if allow_all else origins,
+    allow_credentials=not allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(tracking.router)
 app.include_router(stats.router)
+app.include_router(proxy.router)
 
 
 class LoginRequest(BaseModel):
@@ -75,7 +81,7 @@ def auth_check(request: Request):
 
 
 @app.get("/dashboard", include_in_schema=False)
-def get_dashboard(_auth=Depends(verify_panel_auth)):
+def get_dashboard():
     path = PROJECT_ROOT / "static" / "dashboard.html"
     if path.exists():
         return FileResponse(str(path), media_type="text/html")

@@ -686,6 +686,11 @@
       });
     });
 
+    // Expose auth functions globally for onclick handlers
+    window.handleLogin = handleLogin;
+    window.handleLogout = handleLogout;
+    window.initDashboard = initDashboard;
+
     function checkAuth() {
       fetch("/api/auth/check", {credentials: "same-origin"}).then(function (r) {
         if (r.ok) {
