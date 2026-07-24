@@ -82,8 +82,7 @@ async def login(request: Request, redirect: str = ""):
 
 @router.post("/token")
 async def exchange_token(body: CodeExchangeRequest, request: Request):
-    print(f"[EXCHANGE] code={body.code[:20]}..., code_verifier={body.code_verifier[:20]}...")
-    print(f"[EXCHANGE] TOKEN_URL={TOKEN_URL}, CLIENT_ID={OAUTH_CLIENT_ID}, REDIRECT_URI={OAUTH_REDIRECT_URI}")
+    print(f"[认证] 收到token交换请求，code={body.code[:15]}...")
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
             TOKEN_URL,
@@ -96,17 +95,16 @@ async def exchange_token(body: CodeExchangeRequest, request: Request):
                 "code_verifier": body.code_verifier,
             },
         )
-        print(f"[EXCHANGE] token response status={token_resp.status_code}, body={token_resp.text}")
+        print(f"[认证] OAuth token响应: status={token_resp.status_code}")
         if token_resp.status_code != 200:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Token exchange failed: {token_resp.status_code} {token_resp.text}",
+                detail=f"Token exchange failed: {token_resp.status_code}",
             )
 
         token_data = token_resp.json()
         access_token = token_data["access_token"]
         id_token = token_data.get("id_token", "")
-        print(f"[EXCHANGE] got access_token={access_token[:20]}..., id_token={'yes' if id_token else 'no'}")
 
         userinfo = {}
         if id_token:
@@ -116,9 +114,9 @@ async def exchange_token(body: CodeExchangeRequest, request: Request):
                 payload += "=" * pad
             try:
                 userinfo = json.loads(base64.urlsafe_b64decode(payload))
-                print(f"[EXCHANGE] parsed id_token: sub={userinfo.get('sub')}, username={userinfo.get('username')}")
+                print(f"[认证] 从id_token解析用户: sub={userinfo.get('sub')}, username={userinfo.get('username')}")
             except Exception as e:
-                print(f"[EXCHANGE] failed to parse id_token: {e}")
+                print(f"[认证] 解析id_token失败: {e}")
 
         if not userinfo.get("sub"):
             userinfo_resp = await client.get(
@@ -126,17 +124,15 @@ async def exchange_token(body: CodeExchangeRequest, request: Request):
                 headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
                 follow_redirects=True,
             )
-            print(f"[EXCHANGE] userinfo response status={userinfo_resp.status_code}, body={userinfo_resp.text[:300]}")
+            print(f"[认证] userinfo响应: status={userinfo_resp.status_code}")
             if userinfo_resp.status_code != 200:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Failed to get user info")
             userinfo = userinfo_resp.json()
 
     sub = userinfo["sub"]
-    print(f"[EXCHANGE] user sub={sub}")
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.sub == sub).first()
-        print(f"[EXCHANGE] existing user={user}")
         if not user:
             user = User(
                 sub=sub,
@@ -147,20 +143,20 @@ async def exchange_token(body: CodeExchangeRequest, request: Request):
             db.add(user)
             db.commit()
             db.refresh(user)
-            print(f"[EXCHANGE] created new user id={user.id}")
+            print(f"[认证] 创建新用户: id={user.id}, sub={sub}")
         else:
             user.username = userinfo.get("username", user.username)
             user.email = userinfo.get("email", user.email)
             user.picture = userinfo.get("picture", user.picture)
             db.commit()
-            print(f"[EXCHANGE] updated existing user id={user.id}")
+            print(f"[认证] 更新已有用户: id={user.id}, sub={sub}")
     finally:
         db.close()
 
     request.session["user_sub"] = user.sub
     request.session["user_username"] = user.username
     request.session["user_picture"] = user.picture
-    print(f"[EXCHANGE] session set, redirecting")
+    print(f"[认证] session已设置，用户={user.username}")
 
     redirect_to = request.session.pop("oauth_redirect", "/fursee/auto")
     return {"status": "ok", "redirect": redirect_to}
