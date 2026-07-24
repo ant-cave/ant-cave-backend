@@ -81,9 +81,6 @@ async def proxy(request: Request, path: str):
 
     target_path, body = _prefix_user(path, sub, request.method, body) if sub else (path, body)
 
-    if sub and "auto_uploads" in target_path:
-        target_path = target_path.replace("auto_uploads", f"auto_uploads_{sub}")
-
     url = f"{FURSEE_BASE}/{target_path}" + (f"?{qs}" if qs else "")
 
     is_upload = "upload" in target_path.lower()
