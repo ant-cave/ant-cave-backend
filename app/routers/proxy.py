@@ -120,9 +120,11 @@ async def proxy(request: Request, path: str):
         return StreamingResponse(content='{"error": "upstream timeout"}', status_code=504, media_type="application/json")
 
     content_type = response.headers.get("content-type", "")
+    print(f"[代理] 响应 content-type={content_type}，用户={sub or '匿名'}，状态={response.status_code}")
     if sub and "application/json" in content_type:
         try:
             raw = await response.aread()
+            print(f"[代理] JSON响应体前200字符: {raw[:200]}")
             data = json.loads(raw)
             return StreamingResponse(
                 content=json.dumps(data),
@@ -130,8 +132,8 @@ async def proxy(request: Request, path: str):
                 headers={k: v for k, v in response.headers.items() if k.lower() not in ("transfer-encoding", "content-length")},
                 media_type="application/json",
             )
-        except (json.JSONDecodeError, Exception):
-            pass
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"[代理] JSON解析失败: {e}，前200字符: {raw[:200] if raw else '空'}")
 
     resp_headers = dict(response.headers)
     resp_headers.pop("transfer-encoding", None)
