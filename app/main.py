@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import CORS_ORIGINS, PROJECT_ROOT, PANEL_PASSWORD, SESSION_SECRET
 from app.database import engine, Base
 from app.dependencies import verify_panel_auth
-from app.routers import proxy, tracking, stats
+from app.routers import auth, proxy, tracking, stats
 
 
 @asynccontextmanager
@@ -36,17 +36,26 @@ app = FastAPI(
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, max_age=86400, same_site="lax", https_only=False)
 
 origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
-allow_all = origins == ["*"]
+if origins == ["*"]:
+    origins = [
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:5173",
+        "https://011420.xyz",
+        "https://www.011420.xyz",
+        "https://me.011420.xyz",
+    ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if allow_all else origins,
-    allow_credentials=not allow_all,
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(tracking.router)
 app.include_router(stats.router)
+app.include_router(auth.router)
 app.include_router(proxy.router)
 
 

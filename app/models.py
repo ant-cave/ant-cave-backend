@@ -7,6 +7,26 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, Index
 from app.database import Base
 
 
+class User(Base):
+    """OAuth-authenticated user."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sub = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(255), nullable=True, default="")
+    email = Column(String(255), nullable=True, default="")
+    picture = Column(String(512), nullable=True, default="")
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def __repr__(self):
+        return f"<User sub={self.sub!r} username={self.username!r}>"
+
+
 class Visit(Base):
     """A single page visit recorded by the tracker."""
 
