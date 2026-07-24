@@ -7,6 +7,8 @@ from fastapi.responses import StreamingResponse
 from httpx import AsyncClient
 import httpx
 
+from app.rate_limit import limiter
+
 FURSEE_BASE = "http://localhost:58898"
 
 router = APIRouter(prefix="/fursee")
@@ -68,16 +70,40 @@ async def proxy(request: Request, path: str):
         print(f"[代理] 错误：代理未就绪，请求路径={path}")
         return StreamingResponse(content='{"error": "proxy not ready"}', status_code=503, media_type="application/json")
 
-    sub = _get_user_sub(request)
+    if request.method == "OPTIONS":
+        return StreamingResponse(content=b"", status_code=200)
 
-    need_auth = path.startswith("api/")
-    if need_auth and not sub:
-        print(f"[代理] 未认证请求被拒绝，路径={path}，方法={request.method}")
-        return StreamingResponse(content='{"error": "Not authenticated"}', status_code=401, media_type="application/json")
+    sub = _get_user_sub(request)
+    if not sub:
+        print(f"[代理] 未登录请求被拒绝，路径=/{path}，方法={request.method}")
+        return StreamingResponse(content='{"error": "请先登录"}', status_code=401, media_type="application/json")
 
     qs = request.url.query
     body = await request.body()
     body_size = len(body)
+
+    is_upload = "upload" in path.lower()
+    is_pipeline = "pipeline" in path.lower()
+
+    if is_upload and body_size > 0:
+        allowed, msg = limiter.check_upload(sub, body_size)
+        if not allowed:
+            print(f"[配额] 上传被拒绝：用户={sub[:8]}...，{msg}")
+            return StreamingResponse(
+                content=json.dumps({"error": msg}),
+                status_code=429,
+                media_type="application/json",
+            )
+
+    if is_pipeline:
+        allowed, msg = limiter.check_pipeline(sub)
+        if not allowed:
+            print(f"[配额] 流水线被拒绝：用户={sub[:8]}...，{msg}")
+            return StreamingResponse(
+                content=json.dumps({"error": msg}),
+                status_code=429,
+                media_type="application/json",
+            )
 
     target_path, body = _prefix_user(path, sub, request.method, body) if sub else (path, body)
 
@@ -106,6 +132,15 @@ async def proxy(request: Request, path: str):
         )
         elapsed = time.time() - start_time
         print(f"[代理] 上游响应：路径=/{target_path} 状态={response.status_code} 耗时={elapsed:.2f}s")
+        if response.status_code == 200:
+            if is_upload:
+                limiter.record_upload(sub, body_size)
+                usage = limiter.get_usage(sub)
+                print(f"[配额] 上传成功记录：用户={sub[:8]}...，今日已用 {usage['upload_used_mb']}MB/{usage['upload_limit_mb']:.0f}MB")
+            elif is_pipeline:
+                limiter.record_pipeline(sub)
+                usage = limiter.get_usage(sub)
+                print(f"[配额] 流水线成功记录：用户={sub[:8]}...，今日已用 {usage['pipeline_runs']}/{usage['pipeline_limit']}次")
     except httpx.ConnectError:
         elapsed = time.time() - start_time
         print(f"[代理] 连接上游失败：路径=/{target_path} 耗时={elapsed:.2f}s")
@@ -143,6 +178,19 @@ async def proxy(request: Request, path: str):
         status_code=response.status_code,
         headers=resp_headers,
         media_type=content_type,
+    )
+
+
+@router.get("/api/quota")
+async def get_quota(request: Request):
+    sub = _get_user_sub(request)
+    if not sub:
+        return StreamingResponse(content='{"error": "请先登录"}', status_code=401, media_type="application/json")
+    usage = limiter.get_usage(sub)
+    return StreamingResponse(
+        content=json.dumps(usage),
+        status_code=200,
+        media_type="application/json",
     )
 
 
