@@ -124,7 +124,6 @@ async def proxy(request: Request, path: str):
         try:
             raw = await response.aread()
             data = json.loads(raw)
-            data = _filter_json_by_user(data, sub)
             return StreamingResponse(
                 content=json.dumps(data),
                 status_code=response.status_code,
