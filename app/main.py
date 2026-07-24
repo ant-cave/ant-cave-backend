@@ -33,7 +33,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, max_age=86400, same_site="lax", https_only=False)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, max_age=86400, same_site="none", https_only=True)
 
 origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
 if origins == ["*"]:
