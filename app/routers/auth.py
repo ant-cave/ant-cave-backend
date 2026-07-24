@@ -93,7 +93,10 @@ async def exchange_token(body: CodeExchangeRequest, request: Request):
             },
         )
         if token_resp.status_code != 200:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token exchange failed")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Token exchange failed: {token_resp.status_code} {token_resp.text}",
+            )
 
         token_data = token_resp.json()
         access_token = token_data["access_token"]
